@@ -1,17 +1,30 @@
 ---
-- name: Install CrowdStrike Falcon Sensor
-  hosts: all
+- name: Install CrowdStrike Falcon Sensor on Windows
+  hosts: windows
   become: yes
-  vars:
-    falcon_sensor_package: "/tmp/falcon-sensor.rpm"  # Update this path for your package
-    customer_id: "YOUR_CUSTOMER_ID"  # Replace with your actual CID
-
   tasks:
-    - name: Determine OS family
-      ansible.builtin.setup:
-      register: system_info
+  
+    - name: Download CrowdStrike Falcon Sensor
+      win_get_url:
+        url: "https://your-internal-server/falcon-sensor.msi"  # Replace with actual URL
+        dest: "C:\\Windows\\Temp\\falcon-sensor.msi"
 
-    - name: Upload Falcon Sensor package
-      ansible.builtin.copy:
-        src: "{{ falcon_sensor_package }}"
-        dest: "/tmp/falcon-sensor"
+    - name: Install Falcon Sensor
+      win_package:
+        path: "C:\\Windows\\Temp\\falcon-sensor.msi"
+        arguments: "CID=YOUR_CROWDSTRIKE_CID /quiet /norestart"
+        state: present
+
+    - name: Ensure Falcon Sensor Service is Running
+      win_service:
+        name: "CSFalconService"
+        start_mode: auto
+        state: started
+
+    - name: Verify Installation
+      win_shell: 'Get-Service -Name CSFalconService'
+      register: falcon_service_status
+
+    - name: Display Installation Status
+      debug:
+        var: falcon_service_status.stdout_lines
