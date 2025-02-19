@@ -1,0 +1,28 @@
+---
+- name: Enforce Windows Registry Keys
+  hosts: windows
+  gather_facts: no
+  tasks:
+    - name: Ensure multiple registry keys exist and have the correct values
+      ansible.windows.win_regedit:
+        path: HKLM\SOFTWARE\MyCompany
+        name: SecuritySetting
+        data: 1
+        type: dword
+        state: present
+
+    - name: Ensure another registry key is set
+      ansible.windows.win_regedit:
+        path: HKLM\SOFTWARE\MyCompany
+        name: EnableFeatureX
+        data: 0
+        type: dword
+        state: present
+
+    - name: Ensure yet another registry key is set
+      ansible.windows.win_regedit:
+        path: HKLM\SOFTWARE\MyCompany\SubKey
+        name: ConfigValue
+        data: "Enabled"
+        type: string
+        state: present
