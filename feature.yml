@@ -1,0 +1,9 @@
+---
+- name: Remove a Windows Feature
+  hosts: windows
+  gather_facts: yes
+  tasks:
+    - name: Remove the IIS Web-Server feature
+      win_feature:
+        name: Web-Server
+        state: absent
