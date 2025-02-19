@@ -1,0 +1,14 @@
+---
+- name: Uninstall Microsoft LAPS Agent
+  hosts: windows
+  gather_facts: yes
+  tasks:
+    - name: Uninstall LAPS using win_package
+      win_package:
+        product_id: "{F8C2AEE8-5F00-49E5-B6AB-7391E9830523}"  # Replace with actual LAPS Product ID
+        state: absent
+      register: laps_uninstall
+
+    - name: Display uninstall results
+      debug:
+        msg: "LAPS uninstall result: {{ laps_uninstall }}"
