@@ -1,0 +1,22 @@
+---
+- name: Apply GPO from .pol File
+  hosts: windows
+  gather_facts: no
+  tasks:
+    - name: Copy Machine Policy .pol File
+      ansible.windows.win_copy:
+        src: files/Registry.pol  # Update with your local .pol path
+        dest: C:\Windows\System32\GroupPolicy\Machine\Registry.pol
+        remote_src: no
+      notify: Refresh Group Policy
+
+    - name: Copy User Policy .pol File
+      ansible.windows.win_copy:
+        src: files/UserRegistry.pol  # Update with your local .pol path if applicable
+        dest: C:\Windows\System32\GroupPolicy\User\Registry.pol
+        remote_src: no
+      notify: Refresh Group Policy
+
+  handlers:
+    - name: Refresh Group Policy
+      ansible.windows.win_command: gpupdate /force
