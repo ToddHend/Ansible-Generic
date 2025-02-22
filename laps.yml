@@ -12,3 +12,41 @@
     - name: Display uninstall results
       debug:
         msg: "LAPS uninstall result: {{ laps_uninstall }}"
+
+
+v2
+
+- name: Uninstall Legacy LAPS
+  hosts: windows_servers
+  gather_facts: yes
+  tasks:
+    
+    - name: Uninstall LAPS using MSIEXEC
+      ansible.windows.win_command: 
+        cmd: 'msiexec /x {LAPS-PRODUCT-CODE} /qn /norestart'
+      register: uninstall_laps
+      ignore_errors: yes
+
+    - name: Remove LAPS directory
+      ansible.windows.win_file:
+        path: "C:\\Program Files\\LAPS"
+        state: absent
+
+    - name: Remove LAPS PowerShell module
+      ansible.windows.win_file:
+        path: "C:\\Program Files\\LAPS\\AdmPwd.PS"
+        state: absent
+
+    - name: Delete LAPS Registry Keys
+      ansible.windows.win_registry:
+        path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\LAPS
+        state: absent
+
+    - name: Remove LAPS Policies
+      ansible.windows.win_regedit:
+        path: HKLM:\Software\Policies\Microsoft Services\AdmPwd
+        state: absent
+
+    - name: Reboot if needed
+      ansible.windows.win_reboot:
+        when: uninstall_laps is changed
