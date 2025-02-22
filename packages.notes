@@ -1,0 +1,134 @@
+Managing MSI or EXE installations on Windows using **Ansible** can be done in multiple ways, depending on the requirements and flexibility needed. Here are the different methods:  
+
+---
+
+## **1. Using `ansible.windows.win_package` (Recommended for MSI and EXE)**
+The `win_package` module is the best option for installing or uninstalling MSI/EXE applications.
+
+### **Example: Installing an MSI Package**
+```yaml
+- name: Install MSI Package
+  ansible.windows.win_package:
+    path: "C:\\Installers\\software.msi"
+    product_id: "{1234-5678-ABCD-EFGH}"  # Optional: Used for uninstallation
+    arguments: "/qn /norestart"
+    state: present
+```
+
+### **Example: Uninstalling an MSI Package**
+```yaml
+- name: Uninstall MSI Package
+  ansible.windows.win_package:
+    product_id: "{1234-5678-ABCD-EFGH}"
+    state: absent
+```
+
+### **Example: Installing an EXE Package**
+```yaml
+- name: Install EXE Application
+  ansible.windows.win_package:
+    path: "C:\\Installers\\setup.exe"
+    arguments: "/silent /install"
+    state: present
+```
+
+---
+
+## **2. Using `ansible.windows.win_command` (Direct MSIEXEC or EXE Execution)**
+If `win_package` does not work, using `win_command` allows direct execution.
+
+### **Example: Installing MSI Using `msiexec`**
+```yaml
+- name: Install MSI using msiexec
+  ansible.windows.win_command: 'msiexec /i "C:\Installers\software.msi" /qn /norestart'
+```
+
+### **Example: Uninstalling MSI Using `msiexec`**
+```yaml
+- name: Uninstall MSI using msiexec
+  ansible.windows.win_command: 'msiexec /x "{1234-5678-ABCD-EFGH}" /qn /norestart'
+```
+
+### **Example: Installing EXE with Silent Mode**
+```yaml
+- name: Install EXE using win_command
+  ansible.windows.win_command: 'C:\Installers\setup.exe /silent /install'
+```
+
+---
+
+## **3. Using `ansible.windows.win_shell` (For Complex Installations)**
+`win_shell` allows executing PowerShell commands for more flexibility.
+
+### **Example: Install MSI via PowerShell**
+```yaml
+- name: Install MSI using PowerShell
+  ansible.windows.win_shell: |
+    Start-Process msiexec.exe -ArgumentList '/i C:\Installers\software.msi /qn /norestart' -Wait
+```
+
+### **Example: Check If Application is Installed**
+```yaml
+- name: Check if software is installed
+  ansible.windows.win_shell: |
+    $app = Get-WmiObject Win32_Product | Where-Object { $_.Name -match "Software Name" }
+    if ($app) { Write-Output "Installed" } else { Write-Output "Not Installed" }
+```
+
+---
+
+## **4. Using `ansible.windows.win_powershell` (Best for Custom Scripts)**
+For advanced scenarios, use `win_powershell` to run custom PowerShell scripts.
+
+### **Example: Installing MSI Using PowerShell**
+```yaml
+- name: Install MSI via PowerShell
+  ansible.windows.win_powershell:
+    script: |
+      Start-Process msiexec.exe -ArgumentList '/i C:\Installers\software.msi /qn' -Wait
+```
+
+### **Example: Uninstall an Application Using Product Name**
+```yaml
+- name: Uninstall Software using PowerShell
+  ansible.windows.win_powershell:
+    script: |
+      $app = Get-WmiObject Win32_Product | Where-Object { $_.Name -match "Software Name" }
+      if ($app) { $app.Uninstall() }
+```
+
+---
+
+## **5. Using `ansible.windows.win_chocolatey` (For Managing Software via Chocolatey)**
+If the software is available via **Chocolatey**, use `win_chocolatey`.
+
+### **Example: Install Software via Chocolatey**
+```yaml
+- name: Install Google Chrome using Chocolatey
+  ansible.windows.win_chocolatey:
+    name: googlechrome
+    state: present
+```
+
+### **Example: Uninstall Software via Chocolatey**
+```yaml
+- name: Uninstall Google Chrome
+  ansible.windows.win_chocolatey:
+    name: googlechrome
+    state: absent
+```
+
+---
+
+## **Choosing the Right Method**
+| Method | Best for | Notes |
+|--------|---------|-------|
+| **win_package** | MSI/EXE installations with a known product ID | Recommended for most cases |
+| **win_command** | Running `msiexec` or EXE directly | Simple, but no output handling |
+| **win_shell** | Running shell commands with output capture | Useful for condition-based installs |
+| **win_powershell** | Complex PowerShell-based installs | Allows advanced scripting |
+| **win_chocolatey** | Software available in Chocolatey repository | Best for automation-friendly software |
+
+---
+
+Would you like help with a specific MSI or EXE setup? 🚀
