@@ -7,3 +7,23 @@
       win_feature:
         name: Web-Server
         state: absent
+
+
+v2
+
+---
+- name: Install multiple Windows Features
+  hosts: windows
+  tasks:
+    - name: Install IIS Web Server Role, DNS, and File Server
+      win_feature:
+        name:
+          - Web-Server
+          - DNS
+          - FS-FileServer
+        state: present
+      register: result
+
+    - name: Reboot if required
+      win_reboot:
+      when: result.reboot_required
