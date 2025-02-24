@@ -1,0 +1,23 @@
+# Define Infoblox API connection details
+$InfobloxServer = "https://your-infoblox-server/wapi/v2.11/"
+$Username = "admin"
+$Password = "yourpassword"
+
+# Ignore SSL certificate errors (use cautiously in production)
+[System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+
+# Define headers for authentication
+$AuthHeader = @{ Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$Username`:$Password")) }
+
+# Define API Endpoint to get network objects
+$APIEndpoint = "$InfobloxServer/network?_return_fields=network,netmask"
+
+try {
+    # Perform the REST API GET request
+    $Response = Invoke-RestMethod -Uri $APIEndpoint -Method Get -Headers $AuthHeader -ContentType "application/json"
+    
+    # Output the response
+    $Response | ConvertTo-Json -Depth 3
+} catch {
+    Write-Host "Error: $_"
+}
