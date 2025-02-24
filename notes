@@ -88,3 +88,32 @@ Here’s a breakdown of the Python libraries commonly used in an **Ansible Execu
 | **pykerberos**      | Enables Kerberos authentication for secure communication |
 
 Would you like me to add examples of how these libraries are used in Ansible?
+
+
+
+
+
+
+$RegistryPaths = @("HKLM:\Software\MySoftware", "HKLM:\Software\AnotherSoftware")
+$RegistryValue = "MyValue"
+
+foreach ($RegistryPath in $RegistryPaths) {
+    Write-Output "Checking: $RegistryPath"
+    
+    # Check if the registry key exists
+    if (Test-Path $RegistryPath) {
+        Write-Output "Registry key exists: $RegistryPath"
+        
+        # Check if the registry value exists
+        $Value = Get-ItemProperty -Path $RegistryPath -Name $RegistryValue -ErrorAction SilentlyContinue
+        if ($Value) {
+            Write-Output "Registry value '$RegistryValue' exists with data: $($Value.$RegistryValue)"
+        } else {
+            Write-Output "Registry value '$RegistryValue' does not exist."
+        }
+    } else {
+        Write-Output "Registry key does not exist: $RegistryPath"
+    }
+    
+    Write-Output "----------------------------------------"
+}
