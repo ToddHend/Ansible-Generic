@@ -1,3 +1,28 @@
+
+$Server = "https://your-infoblox-server/wapi/v2.11/"
+$Creds = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("admin:yourpassword"))
+$Headers = @{ Authorization = "Basic $Creds" }
+
+try {
+    $Response = Invoke-RestMethod -Uri "$Server/network?_return_fields=network,netmask" -Headers $Headers
+    $Response | ConvertTo-Json -Depth 3
+} catch {
+    Write-Host "Error: $_"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Here’s a breakdown of the Python libraries commonly used in an **Ansible Execution Environment** for Windows automation:
 
 ### **1. pywinrm**
