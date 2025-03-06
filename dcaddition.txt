@@ -1,0 +1,56 @@
+---
+- name: Add Domain Controller to Existing Domain
+  hosts: windows
+  become: yes
+  gather_facts: no
+
+  vars_prompt:
+    - name: safe_mode_password
+      prompt: "Enter the Safe Mode Administrator Password"
+      private: yes
+
+  tasks:
+    - name: Install AD-Domain-Services feature
+      win_feature:
+        name: AD-Domain-Services
+        state: present
+
+    - name: Install DNS feature
+      win_feature:
+        name: DNS
+        state: present
+
+    - name: Add server as additional domain controller
+      win_command: |
+        Install-ADDSDomainController `
+          -DomainName "testdomain.local" `
+          -SafeModeAdministratorPassword (ConvertTo-SecureString "{{ safe_mode_password }}" -AsPlainText -Force) `
+          -NoGlobalCatalog:$false `
+          -InstallDns `
+          -DatabasePath "D:\NTDS" `
+          -LogPath "D:\NTDS" `
+          -SysvolPath "D:\SYSVOL" `
+          -Force `
+          -NoRebootOnCompletion
+      args:
+        creates: D:\NTDS
+
+    - name: Rebooting to complete domain controller promotion
+      win_reboot:
+        when: reboot_required.stdout.find('yes') != -1
+
+    - name: Wait for the server to come back online
+      win_wait_for:
+        port: 5985
+        delay: 10
+        timeout: 300
+
+    - name: Ensure the domain controller is up and running
+      win_shell: |
+        Get-ADDomainController -DomainName testdomain.local
+      register: dc_status
+
+    - name: Fail if the domain controller is not found
+      fail:
+        msg: "Domain Controller for testdomain.local not found"
+      when: dc_status.failed
