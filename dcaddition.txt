@@ -15,11 +15,6 @@
         name: AD-Domain-Services
         state: present
 
-    - name: Install DNS feature
-      win_feature:
-        name: DNS
-        state: present
-
     - name: Add server as additional domain controller
       win_command: |
         Install-ADDSDomainController `
