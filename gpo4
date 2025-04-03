@@ -1,0 +1,36 @@
+# Define the names of the GPOs
+$GPO1Name = "GPO1"
+$GPO2Name = "GPO2"
+
+# Define the paths where the GPOs will be exported
+$ExportPath = "C:\GPOExports"
+$GPO1ExportPath = "$ExportPath\$GPO1Name.xml"
+$GPO2ExportPath = "$ExportPath\$GPO2Name.xml"
+
+# Define the path for the comparison report
+$ReportPath = "$ExportPath\GPOComparisonReport.txt"
+
+# Create export directory if it doesn't exist
+if (-Not (Test-Path $ExportPath)) {
+    New-Item -ItemType Directory -Path $ExportPath
+}
+
+# Export the GPOs as XML
+Get-GPOReport -Name $GPO1Name -ReportType Xml -Path $GPO1ExportPath
+Get-GPOReport -Name $GPO2Name -ReportType Xml -Path $GPO2ExportPath
+
+# Load the contents of the XML files
+$GPO1Content = Get-Content $GPO1ExportPath
+$GPO2Content = Get-Content $GPO2ExportPath
+
+# Compare the contents of the XML files line by line
+$Comparison = Compare-Object -ReferenceObject $GPO1Content -DifferenceObject $GPO2Content -IncludeEqual -SyncWindow 0
+
+# Output the comparison results to a report file
+$Comparison | ForEach-Object {
+    $line = "Difference: $($_.SideIndicator) $($_.InputObject)"
+    Add-Content -Path $ReportPath -Value $line
+}
+
+# Confirm completion and provide report path
+Write-Output "Comparison complete. Report saved to $ReportPath"
