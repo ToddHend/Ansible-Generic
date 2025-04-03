@@ -1,0 +1,33 @@
+# Define GPO names
+$GPO1 = "GPO_Name_1"
+$GPO2 = "GPO_Name_2"
+$ExportPath = "C:\Temp\GPO_Export"
+
+# Ensure the export path exists
+if (!(Test-Path $ExportPath)) {
+    New-Item -ItemType Directory -Path $ExportPath | Out-Null
+}
+
+# Export GPOs
+Backup-GPO -Name $GPO1 -Path $ExportPath
+Backup-GPO -Name $GPO2 -Path $ExportPath
+
+# Combine GPO settings
+$CombinedReport = "$ExportPath\Combined_GPO_Report.txt"
+
+# Clear the report file if it exists
+if (Test-Path $CombinedReport) {
+    Remove-Item $CombinedReport -Force
+}
+
+# Retrieve settings for both GPOs
+$GPO1Report = Get-GPOReport -Name $GPO1 -ReportType XML
+$GPO2Report = Get-GPOReport -Name $GPO2 -ReportType XML
+
+# Write to a combined report
+$GPO1Report | Out-File -Append $CombinedReport
+"`n--- End of $GPO1 ---`n" | Out-File -Append $CombinedReport
+$GPO2Report | Out-File -Append $CombinedReport
+"`n--- End of $GPO2 ---`n" | Out-File -Append $CombinedReport
+
+Write-Host "Combined GPO report created at: $CombinedReport"
