@@ -1,0 +1,43 @@
+# Define the names of the GPOs to merge and the new GPO
+$GPO1Name = "GPO1"
+$GPO2Name = "GPO2"
+$NewGPOName = "MergedGPO"
+
+# Define the paths where the GPOs will be exported
+$ExportPath = "C:\GPOExports"
+$GPO1ExportPath = "$ExportPath\$GPO1Name"
+$GPO2ExportPath = "$ExportPath\$GPO2Name"
+
+# Create export directory if it doesn't exist
+if (-Not (Test-Path $ExportPath)) {
+    New-Item -ItemType Directory -Path $ExportPath
+}
+
+# Export the GPOs
+$GPO1Backup = Backup-GPO -Name $GPO1Name -Path $GPO1ExportPath
+$GPO2Backup = Backup-GPO -Name $GPO2Name -Path $GPO2ExportPath
+
+# Create a new GPO for the merged settings
+$NewGPO = New-GPO -Name $NewGPOName
+
+# Function to merge settings from one GPO backup to another
+function Merge-GPOSettings {
+    param (
+        [string]$SourcePath,
+        [string]$TargetName
+    )
+    
+    # Import the source GPO settings to the target GPO
+    $BackupID = (Get-ChildItem -Path $SourcePath -Filter "*.xml").BaseName
+    Import-GPO -BackupId $BackupID -Path $SourcePath -TargetName $TargetName -CreateIfNeeded
+}
+
+# Merge settings from GPO1 and GPO2 into the new GPO
+Merge-GPOSettings -SourcePath $GPO1ExportPath -TargetName $NewGPOName
+Merge-GPOSettings -SourcePath $GPO2ExportPath -TargetName $NewGPOName
+
+# Clean up temporary files
+Remove-Item -Recurse -Force $GPO1ExportPath
+Remove-Item -Recurse -Force $GPO2ExportPath
+
+Write-Output "GPOs merged successfully into $NewGPOName"
