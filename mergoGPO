@@ -1,0 +1,57 @@
+# Define the names of the GPOs to merge and the new GPO
+$GPO1Name = "GPO1"
+$GPO2Name = "GPO2"
+$NewGPOName = "MergedGPO"
+
+# Define the paths where the GPOs will be exported
+$ExportPath = "C:\GPOExports"
+$GPO1ExportPath = "$ExportPath\$GPO1Name.xml"
+$GPO2ExportPath = "$ExportPath\$GPO2Name.xml"
+
+# Create export directory if it doesn't exist
+if (-Not (Test-Path $ExportPath)) {
+    New-Item -ItemType Directory -Path $ExportPath
+}
+
+# Export the GPOs as XML
+Get-GPOReport -Name $GPO1Name -ReportType Xml -Path $GPO1ExportPath
+Get-GPOReport -Name $GPO2Name -ReportType Xml -Path $GPO2ExportPath
+
+# Load the XML contents of both GPOs
+[xml]$GPO1Xml = Get-Content $GPO1ExportPath
+[xml]$GPO2Xml = Get-Content $GPO2ExportPath
+
+# Create a new GPO for the merged settings
+$NewGPO = New-GPO -Name $NewGPOName
+
+# Function to merge settings from one GPO XML to another
+function Merge-GPOSettings {
+    param (
+        [xml]$SourceXml,
+        [xml]$TargetXml
+    )
+    
+    foreach ($setting in $SourceXml.GPO.Policies.Policy) {
+        if (-Not ($TargetXml.GPO.Policies.Policy.Id -contains $setting.Id)) {
+            $newSetting = $TargetXml.GPO.Policies.AppendChild($TargetXml.ImportNode($setting, $true))
+        }
+    }
+}
+
+# Merge settings from GPO1 and GPO2 into the new GPO
+Merge-GPOSettings -SourceXml $GPO1Xml -TargetXml $GPO1Xml
+Merge-GPOSettings -SourceXml $GPO2Xml -TargetXml $GPO1Xml
+
+# Save the merged settings to a temporary XML file
+$MergedGPOPath = "$ExportPath\MergedGPO.xml"
+$GPO1Xml.Save($MergedGPOPath)
+
+# Import the merged settings into the new GPO
+Import-GPO -Path $MergedGPOPath -TargetName $NewGPOName
+
+# Clean up temporary files
+Remove-Item $GPO1ExportPath
+Remove-Item $GPO2ExportPath
+Remove-Item $MergedGPOPath
+
+Write-Output "GPOs merged successfully into $NewGPOName"
