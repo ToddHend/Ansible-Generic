@@ -1,0 +1,26 @@
+Import-Module GroupPolicy
+Import-Module ActiveDirectory
+
+$outputCsv = "GPO_OU_Links_Report.csv"
+$results = @()
+
+# Get all OUs in the domain
+$OUs = Get-ADOrganizationalUnit -Filter *
+
+foreach ($ou in $OUs) {
+    $inheritance = Get-GPInheritance -Target $ou.DistinguishedName
+
+    foreach ($link in $inheritance.GpoLinks) {
+        $results += [PSCustomObject]@{
+            OUName      = $ou.Name
+            OUPath      = $ou.DistinguishedName
+            GPOName     = $link.DisplayName
+            Enforced    = if ($link.Enforced) { "Yes" } else { "No" }
+            Enabled     = if ($link.Enabled) { "Yes" } else { "No" }
+        }
+    }
+}
+
+# Export the results to CSV
+$results | Export-Csv -Path $outputCsv -NoTypeInformation -Encoding UTF8
+Write-Host "✔️ GPO-to-OU links exported to: $outputCsv" -ForegroundColor Green
