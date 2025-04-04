@@ -1,0 +1,95 @@
+# Define the GPO name
+$GpoName = "Your-GPO-Name-Here"
+$ExportCsv = "C:\GPO_Export\$($GpoName -replace '[^a-zA-Z0-9_-]', '_').csv"
+
+# Ensure output folder exists
+$folder = Split-Path $ExportCsv
+if (!(Test-Path $folder)) {
+    New-Item -Path $folder -ItemType Directory | Out-Null
+}
+
+# Export GPO as XML
+$XmlPath = "$env:TEMP\$($GpoName -replace '[^a-zA-Z0-9_-]', '_').xml"
+Get-GPOReport -Name $GpoName -ReportType Xml -Path $XmlPath
+[xml]$xml = Get-Content $XmlPath
+
+$allSettings = @()
+
+function Add-Setting {
+    param($Type, $Scope, $Name, $State, $Path, $Value)
+    $allSettings += [pscustomobject]@{
+        GPOName = $GpoName
+        Type    = $Type
+        Scope   = $Scope
+        Setting = $Name
+        State   = $State
+        Path    = $Path
+        Value   = $Value
+    }
+}
+
+# --- REGISTRY SETTINGS (Admin Templates) ---
+foreach ($scope in @("Computer", "User")) {
+    foreach ($ext in $xml.GPO.$scope.ExtensionData.ChildNodes) {
+        if ($ext.RegistrySettings) {
+            foreach ($r in $ext.RegistrySettings.Registry) {
+                Add-Setting "Registry" $scope $r.Name $r.Action $r.Key $r.Value
+            }
+        }
+    }
+}
+
+# --- SECURITY SETTINGS ---
+foreach ($s in $xml.GPO.Computer.ExtensionData.Extension.SecurityOptions.SecuritySetting) {
+    Add-Setting "SecurityOption" "Computer" $s.Name "Configured" $s.Path $s.Value
+}
+foreach ($s in $xml.GPO.Computer.ExtensionData.Extension.Account) {
+    Add-Setting "AccountPolicy" "Computer" $s.Name "Configured" $null $s.Value
+}
+foreach ($s in $xml.GPO.Computer.ExtensionData.Extension.AuditPolicy.Subcategory) {
+    Add-Setting "AuditPolicy" "Computer" $s.Name $s.State $null $null
+}
+foreach ($s in $xml.GPO.Computer.ExtensionData.Extension.PrivilegeRights.Right) {
+    $users = ($s.Principals.Principal -join ", ")
+    Add-Setting "UserRight" "Computer" $s.Name "Assigned" $null $users
+}
+
+# --- SCRIPTS ---
+foreach ($scope in @("Computer", "User")) {
+    foreach ($ext in $xml.GPO.$scope.ExtensionData.ChildNodes) {
+        if ($ext.Scripts) {
+            foreach ($script in $ext.Scripts.Script) {
+                Add-Setting "Script" $scope $script.Name "Defined" $script.Path $script.Parameters
+            }
+        }
+    }
+}
+
+# --- SOFTWARE INSTALLATION ---
+foreach ($package in $xml.GPO.Computer.ExtensionData.Extension.SoftwareInstallation.Package) {
+    Add-Setting "SoftwareInstallation" "Computer" $package.Name $package.Action $package.Path $package.Script
+}
+foreach ($package in $xml.GPO.User.ExtensionData.Extension.SoftwareInstallation.Package) {
+    Add-Setting "SoftwareInstallation" "User" $package.Name $package.Action $package.Path $package.Script
+}
+
+# --- GROUP POLICY PREFERENCES (e.g., drives, printers) ---
+foreach ($scope in @("Computer", "User")) {
+    foreach ($ext in $xml.GPO.$scope.ExtensionData.ChildNodes) {
+        if ($ext.Preferences) {
+            foreach ($pref in $ext.Preferences.ChildNodes) {
+                foreach ($item in $pref.ChildNodes) {
+                    Add-Setting "GPP:$($pref.Name)" $scope $item.Name $item.Action $item.Properties.Path $item.Properties.Value
+                }
+            }
+        }
+    }
+}
+
+# --- EXPORT ---
+if ($allSettings.Count -gt 0) {
+    $allSettings | Export-Csv -Path $ExportCsv -NoTypeInformation -Encoding UTF8
+    Write-Host "Export complete: $ExportCsv"
+} else {
+    Write-Warning "No settings found in GPO: $GpoName"
+}
