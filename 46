@@ -1,0 +1,30 @@
+# Define your AD Connect servers
+$ADConnectServers = @("WDAYSTAADC01.WORKDAYTEST.NET", "WDAYSTAADC02.WORKDAYTEST.NET")
+$SyncType = "Delta"  # Or "Initial"
+
+foreach ($server in $ADConnectServers) {
+    try {
+        Write-Host "Checking staging mode on $server..." -ForegroundColor Cyan
+
+        $isStaging = Invoke-Command -ComputerName $server -ScriptBlock {
+            Import-Module ADSync
+            (Get-ADSyncScheduler).StagingModeEnabled
+        }
+
+        if ($isStaging -eq $false) {
+            Write-Host "[$server] is ACTIVE. Starting $SyncType sync..." -ForegroundColor Green
+
+            Invoke-Command -ComputerName $server -ScriptBlock {
+                Import-Module ADSync
+                Start-ADSyncSyncCycle -PolicyType $using:SyncType
+            }
+
+            Write-Host "Sync initiated successfully on $server." -ForegroundColor Green
+            break
+        } else {
+            Write-Host "[$server] is in STAGING mode. Skipping..." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Warning "Error connecting to $server: $($_.Exception.Message)"
+    }
+}
