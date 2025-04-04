@@ -1,0 +1,43 @@
+# Requires: RSAT with Group Policy Management Console (GPMC)
+Import-Module GroupPolicy
+
+# Output CSV path
+$outputCsv = "All_GPO_Settings_Report.csv"
+
+# Prepare array to store parsed results
+$allSettings = @()
+
+# Get all GPOs
+$gpos = Get-GPO -All
+
+foreach ($gpo in $gpos) {
+    # Generate XML report for this GPO
+    $reportPath = "$env:TEMP\$($gpo.DisplayName)_Report.xml"
+    Get-GPOReport -Guid $gpo.Id -ReportType Xml -Path $reportPath
+
+    # Load the XML
+    [xml]$xml = Get-Content $reportPath
+
+    # Navigate to the Settings section
+    $settingsNodes = $xml.GPO.Policies.Policy
+
+    foreach ($policy in $settingsNodes) {
+        $gpoName     = $gpo.DisplayName
+        $settingPath = $policy.Context
+        $settingName = $policy.Name
+        $settingVal  = $policy.Setting
+
+        $allSettings += [PSCustomObject]@{
+            GPOName      = $gpoName
+            SettingPath  = $settingPath
+            SettingName  = $settingName
+            SettingValue = $settingVal
+        }
+    }
+
+    Remove-Item $reportPath -Force
+}
+
+# Export to CSV
+$allSettings | Export-Csv -Path $outputCsv -NoTypeInformation -Encoding UTF8
+Write-Host "✔️ All GPO settings exported to: $outputCsv" -ForegroundColor Green
