@@ -1,0 +1,29 @@
+# List your Azure AD Connect servers here
+$ADConnectServers = @("ADConnect1", "ADConnect2")
+$SyncType = "Delta"  # Change to "Initial" if needed
+
+foreach ($server in $ADConnectServers) {
+    try {
+        Write-Host "Checking staging mode on $server..." -ForegroundColor Cyan
+
+        $stagingMode = Invoke-Command -ComputerName $server -ScriptBlock {
+            Import-Module ADSync
+            $config = Get-ADSyncGlobalSettings
+            return $config.StagingMode
+        }
+
+        if ($stagingMode -eq $false) {
+            Write-Host "[$server] is ACTIVE. Starting sync..." -ForegroundColor Green
+            Invoke-Command -ComputerName $server -ScriptBlock {
+                Import-Module ADSync
+                Start-ADSyncSyncCycle -PolicyType $using:SyncType
+            }
+            break
+        }
+        else {
+            Write-Host "[$server] is in STAGING mode. Skipping..." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Warning "Failed to connect to $server or retrieve staging mode: $_"
+    }
+}
