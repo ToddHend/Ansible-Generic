@@ -1,7 +1,7 @@
 Import-Module GroupPolicy
 
 # Output CSV path
-$outputCsv = "GPO_Links_Report.csv"
+$outputCsv = "33_GPO_Links_Report.csv"
 
 # Prepare an array to store GPO link information
 $results = @()
