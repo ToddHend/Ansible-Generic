@@ -1,0 +1,58 @@
+# Define GPO name and output path
+$GpoName = "Your-GPO-Name-Here"
+$CsvPath = "C:\GPO_Export\$GpoName.csv"
+
+# Ensure output folder exists
+$folder = Split-Path $CsvPath
+if (!(Test-Path $folder)) {
+    New-Item -Path $folder -ItemType Directory | Out-Null
+}
+
+# Export GPO to XML
+$xmlReportPath = "$env:TEMP\$GpoName.xml"
+Get-GPOReport -Name $GpoName -ReportType Xml -Path $xmlReportPath
+
+# Load XML content
+[xml]$xml = Get-Content $xmlReportPath
+
+$allSettings = @()
+
+# Helper function to extract settings
+function Get-SettingsFromExtensionData {
+    param (
+        [xml]$Extension,
+        [string]$Scope
+    )
+
+    $settings = @()
+
+    foreach ($ext in $Extension.Extension) {
+        $nodes = $ext | Select-Xml -XPath "//Setting"
+        foreach ($node in $nodes) {
+            $n = $node.Node
+            $settings += [PSCustomObject]@{
+                GPOName = $GpoName
+                Scope   = $Scope
+                Setting = $n.Name
+                State   = $n.State
+                Path    = $n.Path
+                Value   = $n.Value
+            }
+        }
+    }
+
+    return $settings
+}
+
+# Extract Computer Configuration settings
+$computerSettings = Get-SettingsFromExtensionData -Extension $xml.GPO.Computer.ExtensionData -Scope "Computer"
+$allSettings += $computerSettings
+
+# Extract User Configuration settings
+$userSettings = Get-SettingsFromExtensionData -Extension $xml.GPO.User.ExtensionData -Scope "User"
+$allSettings += $userSettings
+
+# Export to CSV
+$allSettings | Export-Csv -Path $CsvPath -NoTypeInformation
+
+Write-Output "GPO '$GpoName' (Computer + User settings) exported to: $CsvPath"
