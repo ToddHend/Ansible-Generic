@@ -1,0 +1,45 @@
+Import-Module GroupPolicy
+
+$outputCsv = "GPO_Links_Report.csv"
+$results = @()
+
+$allGpos = Get-GPO -All
+
+foreach ($gpo in $allGpos) {
+    $xmlPath = "$env:TEMP\$($gpo.DisplayName)_report.xml"
+    Get-GPOReport -Guid $gpo.Id -ReportType Xml -Path $xmlPath
+
+    [xml]$xml = Get-Content $xmlPath
+    $links = $xml.GPO.LinksTo
+
+    # If there are links, process them
+    if ($links -and $links.ChildNodes.Count -gt 0) {
+        foreach ($link in $links.ChildNodes) {
+            $enforced = if ($link.NoOverride -eq $true) { "Yes" } else { "No" }
+            $enabled  = if ($link.Enabled -eq $true)    { "Yes" } else { "No" }
+
+            $results += [PSCustomObject]@{
+                GPOName   = $gpo.DisplayName
+                LinkType  = $link.SOMType
+                LinkedTo  = $link.SOMPath
+                Enforced  = $enforced
+                Enabled   = $enabled
+            }
+        }
+    }
+    else {
+        # Handle GPOs that are not linked to any OU
+        $results += [PSCustomObject]@{
+            GPOName   = $gpo.DisplayName
+            LinkType  = "None"
+            LinkedTo  = ""
+            Enforced  = ""
+            Enabled   = ""
+        }
+    }
+
+    Remove-Item $xmlPath -Force
+}
+
+$results | Export-Csv -Path $outputCsv -NoTypeInformation -Encoding UTF8
+Write-Host "✔️ GPO links report exported to $outputCsv" -ForegroundColor Green
