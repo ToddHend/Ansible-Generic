@@ -1,0 +1,62 @@
+# Output folder for all GPO exports
+$ExportFolder = "C:\GPO_Export"
+if (!(Test-Path $ExportFolder)) {
+    New-Item -Path $ExportFolder -ItemType Directory | Out-Null
+}
+
+# Function to extract registry-based GPO settings
+function Extract-RegistrySettings {
+    param (
+        [Object]$ExtensionData,
+        [string]$Scope,
+        [string]$GpoName
+    )
+
+    $settings = @()
+
+    foreach ($ext in $ExtensionData.ChildNodes) {
+        if ($ext.RegistrySettings) {
+            foreach ($r in $ext.RegistrySettings.Registry) {
+                $settings += [PSCustomObject]@{
+                    GPOName = $GpoName
+                    Scope   = $Scope
+                    Setting = $r.Name
+                    State   = $r.Action
+                    Path    = $r.Key
+                    Value   = $r.Value
+                }
+            }
+        }
+    }
+
+    return $settings
+}
+
+# Loop through all GPOs
+$allGpos = Get-GPO -All
+
+foreach ($gpo in $allGpos) {
+    $GpoName = $gpo.DisplayName
+    $SafeName = ($GpoName -replace '[^a-zA-Z0-9_-]', '_')  # Sanitize filename
+    $CsvPath = Join-Path $ExportFolder "$SafeName.csv"
+    $XmlPath = Join-Path $env:TEMP "$SafeName.xml"
+
+    # Export GPO to XML
+    Get-GPOReport -Name $GpoName -ReportType Xml -Path $XmlPath
+
+    # Load and parse XML
+    [xml]$xml = Get-Content $XmlPath
+    $settings = @()
+
+    # Extract settings
+    $settings += Extract-RegistrySettings -ExtensionData $xml.GPO.Computer.ExtensionData -Scope "Computer" -GpoName $GpoName
+    $settings += Extract-RegistrySettings -ExtensionData $xml.GPO.User.ExtensionData -Scope "User" -GpoName $GpoName
+
+    # Save to CSV if any settings were found
+    if ($settings.Count -gt 0) {
+        $settings | Export-Csv -Path $CsvPath -NoTypeInformation
+        Write-Host "Exported: $GpoName --> $CsvPath"
+    } else {
+        Write-Warning "No exportable settings found in: $GpoName"
+    }
+}
