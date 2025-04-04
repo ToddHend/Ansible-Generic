@@ -1,0 +1,7 @@
+$RemoteServer = "YourADConnectServer"  # Replace with your server name or IP
+$SyncType = "Delta"                    # Change to "Initial" if needed
+
+Invoke-Command -ComputerName $RemoteServer -ScriptBlock {
+    Import-Module ADSync
+    Start-ADSyncSyncCycle -PolicyType $using:SyncType
+}
