@@ -1,5 +1,5 @@
 # Define your AD Connect servers
-$ADConnectServers = @("WDAYSTAADC01.WORKDAYTEST.NET", "WDAYSTAADC02.WORKDAYTEST.NET")
+$ADConnectServers = @("")
 $SyncType = "Delta"  # Or "Initial"
 
 foreach ($server in $ADConnectServers) {
