@@ -1,0 +1,38 @@
+# Requires: RSAT with GPMC installed
+Import-Module GroupPolicy
+
+# Output CSV path
+$outputCsv = "GPO_Links_Report.csv"
+
+# Prepare an array to store GPO link information
+$results = @()
+
+# Get all GPOs
+$allGpos = Get-GPO -All
+
+foreach ($gpo in $allGpos) {
+    # Use Get-GPOReport to extract link info
+    $xmlPath = "$env:TEMP\$($gpo.DisplayName)_report.xml"
+    Get-GPOReport -Guid $gpo.Id -ReportType Xml -Path $xmlPath
+
+    [xml]$xml = Get-Content $xmlPath
+
+    # Get linked targets (could be OUs, domains, sites)
+    $links = $xml.GPO.LinksTo
+
+    foreach ($link in $links.ChildNodes) {
+        $results += [PSCustomObject]@{
+            GPOName     = $gpo.DisplayName
+            LinkType    = $link.SOMType
+            LinkedTo    = $link.SOMPath
+            Enforced    = $link.NoOverride -eq $false ? "No" : "Yes"
+            Enabled     = $link.Enabled -eq $true ? "Yes" : "No"
+        }
+    }
+
+    Remove-Item $xmlPath -Force
+}
+
+# Export to CSV
+$results | Export-Csv -Path $outputCsv -NoTypeInformation -Encoding UTF8
+Write-Host "✔️ GPO links exported to: $outputCsv" -ForegroundColor Cyan
