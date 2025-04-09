@@ -1,0 +1,16 @@
+# Path to your .bat file
+$batchFilePath = "C:\Path\To\Your\script.bat"
+
+# Get the hostname
+$hostname = $env:COMPUTERNAME
+
+# Read the file content
+$content = Get-Content $batchFilePath
+
+# Replace placeholder with hostname (e.g., __HOSTNAME__)
+$updatedContent = $content -replace "__HOSTNAME__", $hostname
+
+# Write back to the file
+Set-Content -Path $batchFilePath -Value $updatedContent
+
+Write-Host "Batch file updated with hostname: $hostname"
