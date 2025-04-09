@@ -1,0 +1,30 @@
+---
+- name: Enable Remote Desktop Connection on Windows (Native Ansible Modules)
+  hosts: windows
+  tasks:
+
+    - name: Enable RDP by updating the registry key
+      win_regedit:
+        path: HKLM:\System\CurrentControlSet\Control\Terminal Server
+        name: fDenyTSConnections
+        data: 0
+        datatype: dword
+        state: present
+
+    - name: Enable Network Level Authentication for RDP
+      win_regedit:
+        path: HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+        name: UserAuthentication
+        data: 1
+        datatype: dword
+        state: present
+
+    - name: Enable Windows Firewall Rule for Remote Desktop
+      win_firewall_rule:
+        name: Remote Desktop
+        state: enabled
+
+    - name: Restart Remote Desktop Service
+      win_service:
+        name: TermService
+        state: restarted
