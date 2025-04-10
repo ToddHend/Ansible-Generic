@@ -1,0 +1,46 @@
+Azure AD Connect Configuration Documentation – PDF Version (Option 1)
+
+Objective:
+Export the current Azure AD Connect sync configuration and generate a detailed report in PDF format using the Azure AD Connect Configuration Documenter.
+Step 1: Download the Azure AD Connect Configuration Documenter Tool
+1. Navigate to the official Microsoft GitHub repository:
+  https://github.com/Microsoft/AADConnectConfigDocumenter
+2. Click Code > Download ZIP and extract it to a folder, e.g.: C:\Tools\AADConnectConfigDocumenter
+3. Alternatively, clone it using Git:
+  git clone https://github.com/Microsoft/AADConnectConfigDocumenter.git
+Step 2: Export the Current Azure AD Connect Configuration
+1. Open PowerShell as Administrator on the server running Azure AD Connect.
+2. Import the AD Sync module:
+  Import-Module ADSync
+3. Export the configuration:
+  $exportPath = "C:\AADConnectExport"
+  New-Item -ItemType Directory -Path $exportPath -Force
+  Export-ADSyncConfig -Path $exportPath -Force
+This creates a structure of JSON files with your sync rules, connector settings, etc.
+Step 3: Prepare for Documentation
+1. Copy the folder C:\AADConnectExport to the directory where the Documenter tool is located.
+2. Rename it to something meaningful like 'Current', e.g.: C:\Tools\AADConnectConfigDocumenter\Current
+Step 4: Run the Documenter
+1. Open PowerShell as Administrator again and navigate to the tool's folder:
+  cd C:\Tools\AADConnectConfigDocumenter
+2. Execute the script:
+  .\AADConnectConfigDocumenter.ps1
+3. When prompted:
+  - Input Folder: Choose the folder you renamed (Current)
+  - Reference Folder: Leave blank or choose another config folder if comparing
+4. A report will be created under: C:\Tools\AADConnectConfigDocumenter\Report\ADConnectSyncDocumenterReport.html
+Step 5: Convert HTML to PDF
+Option A: Print to PDF (Manual)
+1. Open the HTML file in a browser (Edge, Chrome, etc.).
+2. Press Ctrl + P or right-click and select Print.
+3. Choose Microsoft Print to PDF or any PDF printer.
+4. Save the file as AzureADConnect_Report.pdf.
+Option B: Use PowerShell and wkhtmltopdf (Scripted)
+1. Install wkhtmltopdf: https://wkhtmltopdf.org/downloads.html
+2. Use PowerShell to convert:
+  Start-Process "C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe" -ArgumentList "C:\Tools\AADConnectConfigDocumenter\Report\ADConnectSyncDocumenterReport.html", "C:\Tools\AADConnectConfigDocumenter\Report\AADConnect_Report.pdf" -Wait
+Optional Extras
+- Schedule this process weekly/monthly to track changes.
+- Store reports in a version-controlled folder or use Git for diff tracking.
+- Include the PDF in IT audits or change review documentation.
+Checklis
