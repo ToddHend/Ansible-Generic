@@ -1,0 +1,53 @@
+param (
+    [string[]]$Servers,
+    [string]$StoreLocation = "LocalMachine",
+    [string]$StoreName = "My"
+)
+
+function Get-Certificates {
+    param (
+        [string]$StoreLocation,
+        [string]$StoreName
+    )
+
+    $store = New-Object System.Security.Cryptography.X509Certificates.X509Store($StoreName, $StoreLocation)
+    $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly)
+
+    $certs = $store.Certificates | Select-Object `
+        Subject, Issuer, Thumbprint, NotBefore, NotAfter, FriendlyName, HasPrivateKey
+
+    $store.Close()
+    return $certs
+}
+
+$results = @()
+
+foreach ($server in $Servers) {
+    try {
+        Write-Host "Connecting to $server..." -ForegroundColor Cyan
+
+        $certs = Invoke-Command -ComputerName $server -ScriptBlock ${function:Get-Certificates} `
+            -ArgumentList $StoreLocation, $StoreName
+
+        foreach ($cert in $certs) {
+            $results += [PSCustomObject]@{
+                Server       = $server
+                Subject      = $cert.Subject
+                Issuer       = $cert.Issuer
+                Thumbprint   = $cert.Thumbprint
+                NotBefore    = $cert.NotBefore
+                NotAfter     = $cert.NotAfter
+                HasPrivateKey= $cert.HasPrivateKey
+                FriendlyName = $cert.FriendlyName
+            }
+        }
+
+    } catch {
+        Write-Warning "Failed to connect to $server: $_"
+    }
+}
+
+# Output results
+$results | Format-Table -AutoSize
+# Optional: Export to CSV
+# $results | Export-Csv -Path ".\RemoteCertsReport.csv" -NoTypeInformation
