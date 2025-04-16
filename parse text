@@ -1,0 +1,36 @@
+# Path to your text file
+$textFilePath = "C:\Path\To\yourfile.txt"
+# Output CSV file
+$outputCsvPath = "C:\Path\To\output.csv"
+
+# Read the text file content
+$content = Get-Content $textFilePath
+
+# Initialize an array to hold the results
+$results = @()
+
+# Temp variables
+$name = ""
+$address = ""
+
+foreach ($line in $content) {
+    if ($line -match "^Name:\s*(.+)$") {
+        $name = $matches[1].Trim()
+    } elseif ($line -match "^Address:\s*(.+)$") {
+        $address = $matches[1].Trim()
+        # Add to results only after both name and address are collected
+        $results += [PSCustomObject]@{
+            Name    = $name
+            Address = $address
+        }
+        # Reset for the next block
+        $name = ""
+        $address = ""
+    }
+}
+
+# Output to console
+$results | Format-Table -AutoSize
+
+# Export to CSV
+$results | Export-Csv -Path $outputCsvPath -NoTypeInformation
