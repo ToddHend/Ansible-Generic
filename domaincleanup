@@ -1,0 +1,55 @@
+# Define your decommissioned subdomain names
+$obsoleteDomains = @("child1.yourdomain.com", "child2.yourdomain.com")
+
+# Output file
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$outputFile = "AD_Subdomain_Cleanup_Report_$timestamp.txt"
+"AD Subdomain Cleanup Report - $(Get-Date)" | Out-File $outputFile
+
+# 1. Check domain trusts
+"=== Domain Trusts ===" | Tee-Object -FilePath $outputFile -Append
+Get-ADTrust -Filter * | Where-Object { $obsoleteDomains -contains $_.Name } | Format-List | Tee-Object -FilePath $outputFile -Append
+
+# 2. DNS zones
+"=== DNS Zones ===" | Tee-Object -FilePath $outputFile -Append
+Import-Module DNSServer
+Get-DnsServerZone | Where-Object { $obsoleteDomains -contains $_.ZoneName } | Tee-Object -FilePath $outputFile -Append
+
+# 3. AD Sites and Services - check for leftover servers
+"=== Orphaned Servers in AD Sites and Services ===" | Tee-Object -FilePath $outputFile -Append
+Get-ADObject -Filter 'objectClass -eq "server"' -SearchBase "CN=Sites,CN=Configuration,DC=yourdomain,DC=com" -Properties Name, DistinguishedName |
+Where-Object { $obsoleteDomains | ForEach-Object { $_ -replace '\.', ',' } | ForEach-Object { $_ -in $_.DistinguishedName } } |
+Format-List Name, DistinguishedName | Tee-Object -FilePath $outputFile -Append
+
+# 4. Global Catalog servers (check for removed ones)
+"=== Global Catalogs ===" | Tee-Object -FilePath $outputFile -Append
+Get-ADDomainController -Filter * | Where-Object { $_.IsGlobalCatalog } | Format-Table HostName, Site, Domain | Tee-Object -FilePath $outputFile -Append
+
+# 5. GPO Links by domain
+"=== GPO Links to Subdomain OUs ===" | Tee-Object -FilePath $outputFile -Append
+foreach ($domain in $obsoleteDomains) {
+    Get-GPO -All | Where-Object {
+        ($_.GpoStatus -ne 'AllSettingsDisabled') -and
+        ($_.DisplayName -match $domain -or $_.Id -match $domain)
+    } | Select DisplayName, Id | Tee-Object -FilePath $outputFile -Append
+}
+
+# 6. ADSI Partition Check
+"=== ADSI Partition References ===" | Tee-Object -FilePath $outputFile -Append
+foreach ($domain in $obsoleteDomains) {
+    $dn = $domain -replace '\.', ',DC='
+    $searchDn = "DC=$dn"
+    try {
+        $searcher = New-Object DirectoryServices.DirectorySearcher
+        $searcher.SearchRoot = "LDAP://$searchDn"
+        $searcher.Filter = "(objectClass=*)"
+        $result = $searcher.FindAll()
+        if ($result.Count -gt 0) {
+            "Found entries in $searchDn" | Tee-Object -FilePath $outputFile -Append
+        }
+    } catch {
+        "No entries found in $searchDn (likely clean)" | Tee-Object -FilePath $outputFile -Append
+    }
+}
+
+"=== DONE ===`nReport saved to $outputFile" | Tee-Object -FilePath $outputFile -Append
