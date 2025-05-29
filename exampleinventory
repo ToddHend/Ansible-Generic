@@ -1,0 +1,26 @@
+# Sample Ansible Inventory with Windows Hosts
+
+[windows_webservers]
+win-web1.example.local
+win-web2.example.local
+
+[windows_appservers]
+win-app1.example.local
+win-app2.example.local
+
+[windows_dbservers]
+win-db1.example.local
+win-db2.example.local
+
+[windows:children]
+windows_webservers
+windows_appservers
+windows_dbservers
+
+[windows:vars]
+ansible_connection=winrm
+ansible_user=Administrator
+ansible_password=YourSecurePasswordHere
+ansible_port=5986
+ansible_winrm_transport=basic
+ansible_winrm_server_cert_validation=ignore
