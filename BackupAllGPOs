@@ -1,0 +1,21 @@
+# Requires RSAT: ActiveDirectory module
+Import-Module ActiveDirectory
+
+# Get all Organizational Units
+$OUs = Get-ADOrganizationalUnit -Filter * -Properties DistinguishedName
+
+$emptyOUs = @()
+
+foreach ($ou in $OUs) {
+    $dn = $ou.DistinguishedName
+
+    # Check for any child objects
+    $children = Get-ADObject -Filter 'ObjectClass -ne "organizationalUnit"' -SearchBase $dn -SearchScope OneLevel
+
+    if ($children.Count -eq 0) {
+        $emptyOUs += $ou
+    }
+}
+
+# Output results
+$emptyOUs | Select-Object Name, DistinguishedName | Format-Table -AutoSize
