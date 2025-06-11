@@ -1,0 +1,62 @@
+# DNS Role Segregation: Internal vs External Zones
+
+**Date:** 2025-06-11  
+**Author:** [Your Name]  
+**Reviewed By:** [Approver's Name]  
+**Environment:** Corporate Network (Prod & DMZ)
+
+---
+
+## 1. Internal DNS Servers
+
+### Zones Hosted:
+- `corp.domain.com`
+- `ad.domain.com`
+- `int.domain.com`
+
+### Characteristics:
+- Not accessible externally
+- Hosted on Windows Server DNS or BIND within secure LAN
+- Integrated with Active Directory for SRV and Kerberos records
+- Forwarders set to upstream external DNS (e.g., 8.8.8.8 or DoH provider)
+
+---
+
+## 2. External DNS Servers
+
+### Zones Hosted:
+- `domain.com`
+- `www.domain.com`
+- `vpn.domain.com`
+
+### Characteristics:
+- Hosted with registrar (e.g., Cloudflare, GoDaddy)
+- NO internal records exposed (e.g., no internal IPs or AD SRV records)
+- Only public-facing records published (A, CNAME, MX, SPF, DKIM, etc.)
+- Change control enforced via [your DNS provider] dashboard
+
+---
+
+## 3. Security Assurance: Demonstrating Segregation
+
+| Control                  | Evidence                                                |
+|--------------------------|---------------------------------------------------------|
+| No internal zones public | WHOIS/Dig shows only public records externally          |
+| Separate authoritative servers | Internal DNS servers only answer LAN queries       |
+| AD integration scope     | `_ldap._tcp.dc._msdcs.domain.com` scoped only internally|
+| Firewall rules           | External DNS IPs blocked from internal zone traffic     |
+| DNS logging              | Internal zones queried only from internal subnets       |
+
+---
+
+## 4. Additional Notes
+
+- All internal name resolution is forced through DHCP-assigned internal resolvers.
+- External users use public DNS resolvers (e.g., Cloudflare 1.1.1.1) and are **not allowed** to reach internal records.
+- Split-brain DNS is avoided — zones are uniquely defined per environment.
+
+---
+
+## 5. Diagrams (attached)
+- Network-level DNS traffic flow
+- Zone ownership and delegation diagram
