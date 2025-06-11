@@ -1,0 +1,59 @@
+param (
+    [int]$WaitMinutes = 10,
+    [string]$OutputCSV = ".\ExpensiveLDAPQueries.csv"
+)
+
+# Step 1: Enable LDAP diagnostic logging (Field Engineering level 5)
+$regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics"
+$regName = "15 Field Engineering"
+$existing = Get-ItemProperty -Path $regPath -Name $regName -ErrorAction SilentlyContinue
+if ($existing.$regName -ne 5) {
+    Write-Host "Enabling LDAP diagnostic logging (level 5)..."
+    Set-ItemProperty -Path $regPath -Name $regName -Value 5
+} else {
+    Write-Host "LDAP logging already enabled at level 5."
+}
+
+Write-Host "Waiting $WaitMinutes minutes to collect data..."
+Start-Sleep -Seconds ($WaitMinutes * 60)
+
+# Step 2: Gather Event ID 1644 from Directory Service log
+Write-Host "Collecting and parsing Event ID 1644..."
+$events = Get-WinEvent -LogName "Directory Service" -FilterXPath "*[System[(EventID=1644)]]" -ErrorAction SilentlyContinue
+
+$results = @()
+
+foreach ($event in $events) {
+    $message = $event.Message
+    $timestamp = $event.TimeCreated
+
+    $query = [regex]::Match($message, "Search String:\s+(.*?)\r").Groups[1].Value
+    $clientIP = [regex]::Match($message, "Client Machine:\s+(.*?)\r").Groups[1].Value
+    $basedn = [regex]::Match($message, "Base DN:\s+(.*?)\r").Groups[1].Value
+    $elapsed = [regex]::Match($message, "Elapsed Time \(ms\):\s+(\d+)").Groups[1].Value
+    $returned = [regex]::Match($message, "Entries Returned:\s+(\d+)").Groups[1].Value
+    $scanned = [regex]::Match($message, "Entries Visited:\s+(\d+)").Groups[1].Value
+
+    $results += [PSCustomObject]@{
+        TimeStamp       = $timestamp
+        ClientIP        = $clientIP
+        ElapsedMS       = [int]$elapsed
+        EntriesReturned = [int]$returned
+        EntriesScanned  = [int]$scanned
+        BaseDN          = $basedn
+        LDAPQuery       = $query
+    }
+}
+
+# Step 3: Export to CSV
+if ($results.Count -eq 0) {
+    Write-Warning "No Event ID 1644 entries found."
+} else {
+    Write-Host "Exporting results to $OutputCSV..."
+    $results | Sort-Object ElapsedMS -Descending | Export-Csv -NoTypeInformation -Path $OutputCSV
+    Write-Host "Done. Top results sorted by elapsed time."
+}
+
+# Step 4: Reminder to disable logging (optional cleanup)
+Write-Host "`nReminder: To disable verbose LDAP logging later, run:"
+Write-Host "Set-ItemProperty -Path `"$regPath`" -Name `"$regName`" -Value 0"
