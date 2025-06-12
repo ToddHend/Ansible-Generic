@@ -1,0 +1,40 @@
+---
+- name: Enable Field Engineering diagnostic event logging
+  hosts: windows
+  gather_facts: no
+  tasks:
+
+    - name: Increase Directory Services event log size
+      ansible.windows.win_regedit:
+        path: HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service
+        name: MaxSize
+        data: 204800
+        type: dword
+
+    - name: Enable Field Engineering diagnostics logging
+      ansible.windows.win_regedit:
+        path: HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics
+        name: "15 Field Engineering"
+        data: 5
+        type: dword
+
+    - name: Set Expensive Search Results Threshold
+      ansible.windows.win_regedit:
+        path: HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters
+        name: "Expensive Search Results Threshold"
+        data: 1
+        type: dword
+
+    - name: Set Inefficient Search Results Threshold
+      ansible.windows.win_regedit:
+        path: HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters
+        name: "Inefficient Search Results Threshold"
+        data: 1
+        type: dword
+
+    - name: Set Search Time Threshold (msecs)
+      ansible.windows.win_regedit:
+        path: HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters
+        name: "Search Time Threshold (msecs)"
+        data: 1
+        type: dword
