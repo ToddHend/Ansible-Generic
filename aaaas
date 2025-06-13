@@ -1,0 +1,42 @@
+- name: Request and install certificate from internal CA
+  hosts: windows
+  gather_facts: no
+  vars:
+    ca_config: 'Servername\Certserv'
+    cert_template: 'TemplateName'
+    subject_name: 'CN=yourdomain.com'
+    request_file: 'C:\certrequest.req'
+    cert_file: 'C:\cert.cer'
+    inf_file: 'C:\certrequest.inf'
+
+  tasks:
+
+    - name: Create INF file for certificate request
+      win_template:
+        src: certrequest.inf.j2
+        dest: '{{ inf_file }}'
+
+    - name: Create certificate request
+      win_command: certreq -new '{{ inf_file }}' '{{ request_file }}'
+      args:
+        creates: '{{ request_file }}'
+
+    - name: Submit certificate request
+      win_command: >
+        certreq -submit -config '{{ ca_config }}' '{{ request_file }}' '{{ cert_file }}'
+      args:
+        creates: '{{ cert_file }}'
+
+    - name: Accept and install the certificate
+      win_command: certreq -accept '{{ cert_file }}'
+
+    - name: Clean up INF and request files
+      win_file:
+        path: '{{ item }}'
+        state: absent
+      loop:
+        - '{{ inf_file }}'
+        - '{{ request_file }}'
+
+    - name: Confirm installation
+      win_shell: Write-Host "Certificate request submitted and installed successfully."
