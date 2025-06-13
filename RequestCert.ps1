@@ -1,0 +1,44 @@
+# Set variables
+$CAConfig     = "Servername\Certserv"      # Replace with your CA server and name
+$CertTemplate = "TemplateName"             # Replace with your desired certificate template
+$SubjectName  = "CN=yourdomain.com"        # Replace with your desired subject name
+$RequestFile  = "C:\certrequest.req"       # Path to save the CSR file
+$CertFile     = "C:\cert.cer"              # Path to save the issued certificate
+
+# Create a basic INF file for the certificate request
+$InfContent = @"
+[Version]
+Signature= "\$Windows NT$"
+
+[NewRequest]
+Subject = "$SubjectName"
+KeySpec = 1
+KeyLength = 2048
+Exportable = TRUE
+MachineKeySet = TRUE
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
+RequestType = PKCS10
+Template = "$CertTemplate"
+
+[Extensions]
+1.3.6.1.4.1.311.20.2 = "{text}"
+_continue_ = "2.5.29.37={text}1.3.6.1.5.5.7.3.1"
+"@
+
+# Save the INF file
+$InfFile = "C:\certrequest.inf"
+$InfContent | Out-File -FilePath $InfFile
+
+# Create the certificate request
+certreq -new $InfFile $RequestFile
+
+# Submit the certificate request
+certreq -submit -config $CAConfig $RequestFile $CertFile
+
+# Accept and install the certificate
+certreq -accept $CertFile
+
+# Optionally, clean up the temporary files
+Remove-Item $InfFile, $RequestFile
+
+Write-Host "Certificate request submitted and installed successfully."
