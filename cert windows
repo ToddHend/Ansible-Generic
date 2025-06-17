@@ -1,0 +1,67 @@
+---
+- name: Request certificate on Windows Server using template 'computerv2'
+  hosts: windows
+  gather_facts: no
+  vars:
+    cert_template: "computerv2"
+    ca_config: "CA01\\MyCA"  # Change to match your actual CA
+    cert_inf_path: "C:\\Temp\\request.inf"
+    cert_req_path: "C:\\Temp\\request.req"
+    cert_cer_path: "C:\\Temp\\request.cer"
+
+  tasks:
+    - name: Ensure temp directory exists
+      win_file:
+        path: C:\Temp
+        state: directory
+
+    - name: Create INF file for certificate request
+      win_copy:
+        dest: "{{ cert_inf_path }}"
+        content: |
+          [Version]
+          Signature="$Windows NT$"
+
+          [NewRequest]
+          Subject = "CN={{ ansible_hostname }}"
+          KeySpec = 1
+          KeyLength = 2048
+          Exportable = TRUE
+          MachineKeySet = TRUE
+          SMIME = FALSE
+          PrivateKeyArchive = FALSE
+          UserProtected = FALSE
+          ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
+          RequestType = PKCS10
+          KeyUsage = 0xa0
+
+          [RequestAttributes]
+          CertificateTemplate = {{ cert_template }}
+
+    - name: Create certificate request from INF
+      win_shell: |
+        certreq -new "{{ cert_inf_path }}" "{{ cert_req_path }}"
+      args:
+        executable: cmd
+
+    - name: Submit request to internal CA
+      win_shell: |
+        certreq -submit -config "{{ ca_config }}" "{{ cert_req_path }}" "{{ cert_cer_path }}"
+      args:
+        executable: cmd
+
+    - name: Accept and install the certificate
+      win_shell: |
+        certreq -accept "{{ cert_cer_path }}"
+      args:
+        executable: cmd
+
+    - name: Verify certificate installed in LocalMachine\My
+      community.windows.win_certificate_info:
+        store_location: LocalMachine
+        store_name: My
+      register: certs
+
+    - name: Show installed thumbprints
+      debug:
+        msg: "{{ certs.certificates | map(attribute='thumbprint') | list }}"
