@@ -1,0 +1,17 @@
+- name: Check if 'vmware' local user exists
+  hosts: windows
+  gather_facts: false
+
+  tasks:
+    - name: Query local user 'vmware'
+      ansible.windows.win_user:
+        name: vmware
+        state: query
+      register: vmware_user
+
+    - name: Report if 'vmware' user exists
+      debug:
+        msg: >-
+          User 'vmware' {{
+            'exists' if vmware_user.exists else 'does not exist'
+          }}
