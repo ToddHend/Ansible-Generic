@@ -1,17 +1,54 @@
 Import-Module GroupPolicy
+Import-Module ActiveDirectory
 
-# Get all GPOs
+# Step 1: Get all GPOs
 $allGPOs = Get-GPO -All
+$linkedGPOIds = @()
 
-# Get all linked GPO GUIDs
-$linkedGpoGuids = Get-GPOLink -Domain (Get-ADDomain).DNSRoot -All | ForEach-Object {
-    $_.GPOId
-} | Select-Object -Unique
-
-# Filter unlinked GPOs
-$unlinkedGPOs = $allGPOs | Where-Object {
-    $linkedGpoGuids -notcontains $_.Id
+# Step 2: Check links on all OUs
+$ous = Get-ADOrganizationalUnit -Filter *
+foreach ($ou in $ous) {
+    $links = Get-GPInheritance -Target $ou.DistinguishedName
+    foreach ($link in $links.GpoLinks) {
+        if ($link.DisplayName -ne "[Empty]") {
+            $gpo = Get-GPO -Name $link.DisplayName -ErrorAction SilentlyContinue
+            if ($gpo) { $linkedGPOIds += $gpo.Id }
+        }
+    }
 }
 
-# Output result
+# Step 3: Check domain-level links
+$domain = (Get-ADDomain).DistinguishedName
+$domainLinks = Get-GPInheritance -Target $domain
+foreach ($link in $domainLinks.GpoLinks) {
+    if ($link.DisplayName -ne "[Empty]") {
+        $gpo = Get-GPO -Name $link.DisplayName -ErrorAction SilentlyContinue
+        if ($gpo) { $linkedGPOIds += $gpo.Id }
+    }
+}
+
+# Step 4: Check site-level links
+$sites = Get-ADObject -LDAPFilter "(objectClass=site)" -SearchBase "CN=Sites,CN=Configuration,$((Get-ADRootDSE).configurationNamingContext)" -SearchScope OneLevel
+foreach ($site in $sites) {
+    $siteDn = $site.DistinguishedName
+    try {
+        $siteLinks = Get-GPInheritance -Target $siteDn
+        foreach ($link in $siteLinks.GpoLinks) {
+            if ($link.DisplayName -ne "[Empty]") {
+                $gpo = Get-GPO -Name $link.DisplayName -ErrorAction SilentlyContinue
+                if ($gpo) { $linkedGPOIds += $gpo.Id }
+            }
+        }
+    } catch {
+        # Skip sites with no links
+    }
+}
+
+# Step 5: Remove duplicates
+$linkedGPOIds = $linkedGPOIds | Select-Object -Unique
+
+# Step 6: Find unlinked GPOs
+$unlinkedGPOs = $allGPOs | Where-Object { $linkedGPOIds -notcontains $_.Id }
+
+# Output
 $unlinkedGPOs | Select DisplayName, Id
