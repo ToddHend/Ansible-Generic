@@ -1,0 +1,17 @@
+Import-Module GroupPolicy
+
+# Get all GPOs
+$allGPOs = Get-GPO -All
+
+# Get all linked GPO GUIDs
+$linkedGpoGuids = Get-GPOLink -Domain (Get-ADDomain).DNSRoot -All | ForEach-Object {
+    $_.GPOId
+} | Select-Object -Unique
+
+# Filter unlinked GPOs
+$unlinkedGPOs = $allGPOs | Where-Object {
+    $linkedGpoGuids -notcontains $_.Id
+}
+
+# Output result
+$unlinkedGPOs | Select DisplayName, Id
